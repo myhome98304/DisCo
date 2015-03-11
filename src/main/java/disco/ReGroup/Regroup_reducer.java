@@ -40,10 +40,11 @@ public class Regroup_reducer extends
 			value_change = new int[k];
 
 		StringTokenizer st1, st2;
-
+		int num=0;
 		while (lines.hasNext()) {
 			int i = 0;
 			st1 = new StringTokenizer(lines.next().toString(), "\t");
+			num+= Integer.parseInt(st1.nextToken());
 			ret += st1.nextToken()+" ";
 			st2 = new StringTokenizer(st1.nextToken(), " ");
 			while (st2.hasMoreTokens())
@@ -55,7 +56,7 @@ public class Regroup_reducer extends
 		 * row cluster
 		 */
 		
-		context.write(key, new Text("\t" + ret + "\t"
+		context.write(key, new Text(num + "\t" + ret + "\t"
 				+ arrToString(value_change)));
 
 	}

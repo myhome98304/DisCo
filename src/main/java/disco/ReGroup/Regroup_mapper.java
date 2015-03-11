@@ -138,7 +138,7 @@ public class Regroup_mapper extends
 			 * Key : cluster number Value : row number + spliced adjacency list
 			 */
 			key.set(r);
-			value.set(row + "\t" + arrToString(row_splice));
+			value.set(1 + "\t" + arrToString(row_splice) + "\t" + row);
 
 			context.write(key, value);
 		}
@@ -178,7 +178,7 @@ public class Regroup_mapper extends
 			 * Key : cluster number Value : row number + spliced adjacency list
 			 */
 			key.set(c);
-			value.set(col + "\t" + arrToString(col_splice));
+			value.set(1 + "\t" +  arrToString(col_splice) + "\t" +col);
 
 			context.write(key, value);
 
