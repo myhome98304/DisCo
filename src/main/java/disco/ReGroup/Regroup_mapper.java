@@ -113,9 +113,15 @@ public class Regroup_mapper extends
 			int[] row_splice = new int[l];
 
 			/* Parse line to adjacency list */
-			while (st.hasMoreElements())
-				row_splice[col_permut[Integer.parseInt(st.nextToken())]]++;
+			while (st.hasMoreTokens()) {
+				try {
+					row_splice[col_permut[Integer.parseInt(st.nextToken())]]++;
+				} catch (Exception e) {
+					System.out.println("Out of Range");
+				}
 
+			}
+			
 			/*
 			 * Set line to each row cluster and calculate cost Select cluster
 			 * that minimizes cost
@@ -152,8 +158,15 @@ public class Regroup_mapper extends
 			int[] col_splice = new int[k];
 
 			/* Parse line to adjacency list */
-			while (st.hasMoreElements())
-				col_splice[row_permut[Integer.parseInt(st.nextToken())]]++;
+			while (st.hasMoreTokens()) {
+				try {
+					col_splice[row_permut[Integer.parseInt(st.nextToken())]]++;
+				} catch (Exception e) {
+					System.out.println("Out of Range");
+				}
+
+			}
+			
 
 			/*
 			 * Set line to each column cluster and calculate cost Select cluster

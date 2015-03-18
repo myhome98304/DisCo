@@ -1,25 +1,32 @@
 package disco.preProcess;
 
 import java.io.IOException;
+import java.util.StringTokenizer;
 
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
 public class Preprocess_r_mapper extends
-		Mapper<LongWritable, Text, IntWritable, Text> {
-
+		Mapper<LongWritable, Text, Text, Text> {
+	Text key = new Text();
+	Text value = new Text();
+	StringTokenizer st;
 	@Override
 	public void map(LongWritable arg0, Text line, Context context)
 			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
-		String[] s = line.toString().split(" ");
-
-		int src = Integer.parseInt(s[0]);
-		int dst = Integer.parseInt(s[1]);
-
-		context.write(new IntWritable(src),new Text(dst+""));
+		try{
+			st = new StringTokenizer(line.toString(),"\t ");
+			int src = Integer.parseInt(st.nextToken());
+			key.set(src+"");
+			value.set(st.nextToken());
+			context.write(key,value);	
+		}
+		catch(Exception e){
+			return;
+		}
+		
 
 	}
 }

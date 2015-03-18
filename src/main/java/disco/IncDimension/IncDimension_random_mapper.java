@@ -1,0 +1,145 @@
+package disco.IncDimension;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+
+public class IncDimension_random_mapper extends
+		Mapper<LongWritable, Text, IntWritable, Text> {
+	IntWritable key = new IntWritable();
+	Text value = new Text();
+	String job;
+
+	int m, n;
+	int[] row_permut;
+	int[] col_permut;
+	long[] rowSet;
+	long[] colSet;
+
+	int max_Shannon;
+	int k, l;
+
+	@Override
+	public void setup(Context context) {
+
+		Configuration conf = context.getConfiguration();
+
+		job = conf.get("job", "");
+
+		max_Shannon = conf.getInt("max_Shannon", 0);
+
+		k = conf.getInt("k", 0);
+		l = conf.getInt("l", 0);
+		m = conf.getInt("m", 0);
+		n = conf.getInt("n", 0);
+
+		rowSet = new long[k];
+		colSet = new long[l];
+
+		StringTokenizer st;
+
+		int i;
+
+		row_permut = new int[m];
+		i = 0;
+
+		st = new StringTokenizer(conf.get("row_permut", ""), " ");
+		while (st.hasMoreElements())
+			row_permut[i++] = Integer.parseInt(st.nextToken());
+
+		col_permut = new int[n];
+		i = 0;
+
+		st = new StringTokenizer(conf.get("col_permut", ""), " ");
+		while (st.hasMoreElements())
+			col_permut[i++] = Integer.parseInt(st.nextToken());
+
+		i = 0;
+		st = new StringTokenizer(conf.get("rowSet", ""), "[,] ");
+		while (st.hasMoreTokens())
+			rowSet[i++] = Long.parseLong(st.nextToken());
+
+		i = 0;
+		st = new StringTokenizer(conf.get("colSet", ""), "[,] ");
+		while (st.hasMoreTokens())
+			colSet[i++] = Long.parseLong(st.nextToken());
+
+	}
+
+	@Override
+	public void map(LongWritable arg0, Text line, Context context)
+			throws IOException, InterruptedException {
+
+		int[] subM_change;
+		double partSum_aft;
+		int index;
+
+		StringTokenizer st = new StringTokenizer(line.toString(), "\t ");
+
+		index = Integer.parseInt(st.nextToken());
+
+		if (job.equals("r")) {
+			/* If given row is not in the target cluster, return */
+			if (row_permut[index] != max_Shannon)
+				return;
+
+			subM_change = new int[l];
+
+			/* Parse adjacency list */
+			while (st.hasMoreTokens()) {
+				try {
+					subM_change[col_permut[Integer.parseInt(st.nextToken())]]++;
+				} catch (Exception e) {
+					System.out.println("Out of Range");
+				}
+
+			}
+
+			partSum_aft = 0;
+
+		} else {
+			/* If given column is not in the target cluster, return */
+			if (col_permut[index] != max_Shannon)
+				return;
+
+			subM_change = new int[k];
+
+			/* Parse adjacency list */
+			while (st.hasMoreTokens()) {
+				try {
+					subM_change[row_permut[Integer.parseInt(st.nextToken())]]++;
+				} catch (Exception e) {
+					System.out.println("Out of Range");
+				}
+
+			}
+
+			partSum_aft = 0;
+
+		}
+
+		/*
+		 * If Delete a line decreases the cost, report to reducer Key : trash
+		 * value 1 Value : row or column number + splitted adjacency list
+		 */
+		if (Math.random() >= 0.5)
+			context.write(new IntWritable(), new Text(1 + "\t"
+					+ arrToString(subM_change) + "\t" + index));
+
+	}
+
+	private static String arrToString(int[] arr) {
+		String ret = "";
+		for (int d : arr) {
+			ret += d + " ";
+		}
+		return ret;
+	}
+
+}

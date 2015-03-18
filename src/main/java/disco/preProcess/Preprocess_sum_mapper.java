@@ -1,6 +1,7 @@
 package disco.preProcess;
 
 import java.io.IOException;
+import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.IntWritable;
@@ -20,7 +21,15 @@ public class Preprocess_sum_mapper extends
 	public void map(LongWritable arg0, Text line, Context context)
 			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
-
-		context.write(new IntWritable((int)Math.random()*num_machine),new LongWritable(1));
+		
+		StringTokenizer st = new StringTokenizer(line.toString().split("\t")[1]," ");
+		long value=0;
+		
+		while(st.hasMoreTokens()){
+			st.nextToken();
+			value++;
+		}
+		
+		context.write(new IntWritable((int)Math.random()*num_machine),new LongWritable(value));
 	}
 }
