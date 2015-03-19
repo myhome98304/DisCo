@@ -12,6 +12,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 public class Preprocess_sum_mapper extends
 		Mapper<LongWritable, Text, IntWritable, LongWritable> {
 	int num_machine;
+	LongWritable value = new LongWritable();
 	@Override
 	public void setup(Context context) {
 		Configuration conf = context.getConfiguration();
@@ -22,14 +23,7 @@ public class Preprocess_sum_mapper extends
 			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 		
-		StringTokenizer st = new StringTokenizer(line.toString().split("\t")[1]," ");
-		long value=0;
-		
-		while(st.hasMoreTokens()){
-			st.nextToken();
-			value++;
-		}
-		
-		context.write(new IntWritable((int)Math.random()*num_machine),new LongWritable(value));
+		value.set(Long.parseLong(line.toString().split("\t")[2]));
+		context.write(new IntWritable((int)Math.random()*num_machine), value);
 	}
 }

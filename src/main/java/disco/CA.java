@@ -23,22 +23,28 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.LineReader;
 
 import disco.IncDimension.IncDiemnsion_mapper;
-import disco.IncDimension.IncDimension_combiner;
 import disco.IncDimension.IncDimension_random_mapper;
 import disco.IncDimension.IncDimension_reducer;
 import disco.IncDimension.naive_partitioner_inc;
-import disco.ReGroup.RG_output_mapper;
-import disco.ReGroup.RG_output_reducer;
+import disco.ReGroup.Regroup_calc_mapper;
+import disco.ReGroup.Regroup_calc_reducer;
 import disco.ReGroup.Regroup_combiner;
 import disco.ReGroup.Regroup_mapper;
+import disco.ReGroup.Regroup_reducer;
+import disco.ReGroup.makeNew_split_comibner;
+import disco.ReGroup.makeNew_split_mapper;
+import disco.ReGroup.makeNew_split_reducer;
 import disco.ReGroup.naive_partitioner_reg;
 import disco.preProcess.Preprocess_c_mapper;
+import disco.preProcess.Preprocess_combiner;
 import disco.preProcess.Preprocess_r_mapper;
 import disco.preProcess.Preprocess_reducer;
 import disco.preProcess.Preprocess_sum_mapper;
@@ -50,11 +56,9 @@ public class CA {
 	static String inputFile;
 	static String outputPath;
 	static double Cost = 0;
-	static Configuration conf; 
+	static Configuration conf;
 	static int num_machine = 1;
 
-	static int[] row_permut;
-	static int[] col_permut;
 	static ArrayList<Long> rowSet;
 	static ArrayList<Long> colSet;
 	static double[][] codeMatrix;
@@ -72,10 +76,21 @@ public class CA {
 	static boolean mode;
 	static boolean setSize;
 	static boolean random = false;
+	static boolean zero_cluster;
 
 	static FileSystem fs;
 	static PrintWriter fw;
-	static ArrayList<Double> cost_show =new ArrayList<>();
+	static ArrayList<Double> cost_show = new ArrayList<>();
+
+	static Path row_nonzero;
+	static Path col_nonzero;
+	static Path row_adj;
+	static Path col_adj;
+	static Path r_inc;
+	static Path c_inc;
+	static Path r_reg;
+	static Path c_reg;
+
 	/**
 	 * make adj_list, calculate total Weight
 	 * 
@@ -99,14 +114,19 @@ public class CA {
 		FileInputFormat.addInputPath(job, new Path(inputFile));
 		FileOutputFormat.setOutputPath(job, output);
 
+		MultipleOutputs.addNamedOutput(job, "adj", TextOutputFormat.class,
+				IntWritable.class, Text.class);
+		MultipleOutputs.addNamedOutput(job, "nonzero", TextOutputFormat.class,
+				IntWritable.class, Text.class);
+
 		job.setMapperClass(Preprocess_r_mapper.class);
-		job.setCombinerClass(Preprocess_reducer.class);
+		job.setCombinerClass(Preprocess_combiner.class);
 		job.setReducerClass(Preprocess_reducer.class);
 
-		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputKeyClass(IntWritable.class);
 		job.setMapOutputValueClass(Text.class);
 
-		job.setOutputKeyClass(Text.class);
+		job.setOutputKeyClass(IntWritable.class);
 		job.setOutputValueClass(Text.class);
 
 		job.setNumReduceTasks(num_machine);
@@ -120,24 +140,28 @@ public class CA {
 
 		job.setJobName("preprocessing column data");
 
-		FileInputFormat.addInputPath(job,
-				new Path(outputPath + "/preProcess/r"));
+		FileInputFormat.addInputPath(job, new Path(outputPath
+				+ "/preProcess/r/adj"));
 		FileOutputFormat.setOutputPath(job, output);
 
+		MultipleOutputs.addNamedOutput(job, "adj", TextOutputFormat.class,
+				IntWritable.class, Text.class);
+		MultipleOutputs.addNamedOutput(job, "nonzero", TextOutputFormat.class,
+				IntWritable.class, Text.class);
+
 		job.setMapperClass(Preprocess_c_mapper.class);
-		job.setCombinerClass(Preprocess_reducer.class);
+		job.setCombinerClass(Preprocess_combiner.class);
 		job.setReducerClass(Preprocess_reducer.class);
 
-		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputKeyClass(IntWritable.class);
 		job.setMapOutputValueClass(Text.class);
 
-		job.setOutputKeyClass(Text.class);
+		job.setOutputKeyClass(IntWritable.class);
 		job.setOutputValueClass(Text.class);
 
 		job.setNumReduceTasks(num_machine);
 		job.waitForCompletion(true);
 
-		
 		/* Calculate Total Nonzeros */
 		job = new Job(conf);
 
@@ -147,8 +171,8 @@ public class CA {
 
 		job.setJobName("preprocessing row data");
 
-		FileInputFormat.addInputPath(job,
-				new Path(outputPath + "/preProcess/r"));
+		FileInputFormat.addInputPath(job, new Path(outputPath
+				+ "/preProcess/r/nonzero"));
 		FileOutputFormat.setOutputPath(job, output);
 
 		job.setMapperClass(Preprocess_sum_mapper.class);
@@ -177,8 +201,6 @@ public class CA {
 	 */
 	public static boolean inc_Dimension(String cur_job) throws Exception {
 		System.out.println("Increase Dimension starts with " + cur_job);
-		Path row_job_output = new Path(outputPath + "/incD-r");
-		Path col_job_output = new Path(outputPath + "/incD-c");
 		Path cur_job_output;
 		double partSum_bef = 0;
 
@@ -196,8 +218,8 @@ public class CA {
 		 */
 		if (cur_job.equals("r")) {
 
-			fs.delete(row_job_output, true);
-			cur_job_output = row_job_output;
+			fs.delete(r_inc, true);
+			cur_job_output = r_inc;
 
 			max_Shannon = 0;
 			temp = 0;
@@ -225,8 +247,8 @@ public class CA {
 
 		} else {
 
-			fs.delete(col_job_output, true);
-			cur_job_output = col_job_output;
+			fs.delete(c_inc, true);
+			cur_job_output = c_inc;
 
 			max_Shannon = 0;
 			temp = 0;
@@ -254,37 +276,33 @@ public class CA {
 		}
 
 		System.out.println("Sending Parameter");
-		System.out.println(System.currentTimeMillis());
+
 		/* Start MapReduce */
 		conf.setInt("l", l);
-		System.out.println(System.currentTimeMillis());
+
 		conf.setInt("k", k);
-		System.out.println(System.currentTimeMillis());
+
 		conf.set("partSum_bef", Double.toString(partSum_bef));
-		System.out.println(System.currentTimeMillis());
+
 		conf.setInt("max_Shannon", max_Shannon);
-		System.out.println(System.currentTimeMillis());
+
 		conf.set("subMatrix_String", matrixToString(subMatrix));
-		System.out.println(System.currentTimeMillis());
-		conf.set("row_permut", arrToString(row_permut));
-		System.out.println(System.currentTimeMillis());
-		conf.set("col_permut", arrToString(col_permut));
-		System.out.println(System.currentTimeMillis());
+
 		conf.set("rowSet", rowSet.toString());
-		System.out.println(System.currentTimeMillis());
+
 		conf.set("colSet", colSet.toString());
-		System.out.println(System.currentTimeMillis());
 
 		conf.set("job", cur_job);
-		System.out.println(System.currentTimeMillis());
+
 		System.out.println("Parameter sent");
+
 		Job job = new Job(conf);
 		job.setJarByClass(CA.class);
 
 		job.setJobName("incDimension" + " " + cur_job);
 
 		FileInputFormat.addInputPath(job, new Path(outputPath + "/preProcess/"
-				+ cur_job));
+				+ cur_job + "/nonzero"));
 		FileOutputFormat.setOutputPath(job, cur_job_output);
 
 		/*
@@ -297,7 +315,6 @@ public class CA {
 			job.setMapperClass(IncDimension_random_mapper.class);
 
 		job.setReducerClass(IncDimension_reducer.class);
-		job.setCombinerClass(IncDimension_combiner.class);
 		job.setPartitionerClass(naive_partitioner_inc.class);
 
 		job.setMapOutputKeyClass(IntWritable.class);
@@ -312,11 +329,9 @@ public class CA {
 				IntWritable.class, Text.class);
 
 		job.setNumReduceTasks(num_machine);
-		
+
 		System.out.println("Start MapReduce");
 		job.waitForCompletion(true);
-
-		ArrayList<Integer> initial = new ArrayList<>();
 
 		long[] subM_change;
 
@@ -327,15 +342,18 @@ public class CA {
 
 		StringTokenizer st1, st2;
 
-		int number=0;
+		int number = 0;
 		ArrayList<LineReader> outs;
-		
+
 		try {
-			/* SubMatrix-r-000xx files contains number of lines and Nonzeros to be removed */
-			outs = readLine(new Path(outputPath + "/incD-" + cur_job),"s");		
+			/*
+			 * SubMatrix-r-000xx files contains number of lines and Nonzeros to
+			 * be removed
+			 */
+			outs = readLine(cur_job_output, "s");
 			Text read = new Text();
 			for (LineReader lr : outs) {
-				
+
 				while (lr.readLine(read) > 0) {
 
 					if (read.getLength() == 0)
@@ -343,9 +361,9 @@ public class CA {
 
 					st1 = new StringTokenizer(read.toString(), "\t");
 					st1.nextToken();
-					
-					number+= Integer.parseInt(st1.nextToken());
-					
+
+					number += Integer.parseInt(st1.nextToken());
+
 					i = 0;
 					st2 = new StringTokenizer(st1.nextToken(), " ");
 					while (st2.hasMoreTokens())
@@ -361,17 +379,21 @@ public class CA {
 		}
 
 		/* If the algorithm removes all lines, return false */
-		if (number ==num_candidates)
+		if (number == num_candidates)
 			return false;
-		
+
 		long[][] subMatrix_temp;
 		double[][] codeMatrix_temp;
 
 		double Cost_temp = 0;
+		double new_cost;
 
 		if (cur_job.equals("r")) {
 
-			/* If user set the minimum size of cluster, check whether the size fits */
+			/*
+			 * If user set the minimum size of cluster, check whether the size
+			 * fits
+			 */
 			if (number < m * row_size && setSize)
 				return false;
 
@@ -412,66 +434,26 @@ public class CA {
 				else {
 					for (j = 0; j < l; j++) {
 						subMatrix_temp[i][j] = subM_change[j];
-						codeMatrix_temp[i][j] = codeCost(number,
-								colSet.get(j), subMatrix_temp[i][j]);
+						codeMatrix_temp[i][j] = codeCost(number, colSet.get(j),
+								subMatrix_temp[i][j]);
 						Cost_temp += codeMatrix_temp[i][j];
 
 					}
 				}
 			}
-			
+
 			/* add descriptCost */
-			double new_cost = Cost_temp
+			new_cost = Cost_temp
 					+ descriptCost(k, l, Set_temp, colSet, subMatrix_temp);
-			
-			/* Update row - permutation, permutation - row relation */
-			subMatrix = null;
-			subMatrix = subMatrix_temp;
-			codeMatrix = null;
-			codeMatrix = codeMatrix_temp;
+
 			rowSet = null;
 			rowSet = Set_temp;
 
-			
-			try {
-				/* assign-r-000xx files contains which lines to be removed
-				 * Change those lines' cluster to new cluster
-				 */
-				outs = readLine(new Path(outputPath + "/incD-" + cur_job),"a");		
-				Text read = new Text();
-				for (LineReader lr : outs) {
-
-					while (lr.readLine(read) > 0) {
-
-						if (read.getLength() == 0)
-							continue;
-						
-						st1 = new StringTokenizer(read.toString(),"\t");
-						
-						st1.nextToken();
-						
-						st2 = new StringTokenizer(st1.nextToken()," ");
-						while(st2.hasMoreTokens())
-							row_permut[Integer.parseInt(st2.nextToken())] = k - 1;
-					}
-					
-				}
-			}
-			catch (Exception e) {
-				System.out.println("incdimesion");
-			}
-
-			System.out.println("current row cluster : " + rowSet.toString());
-
-			Cost = new_cost;
-			cost_show.add(Cost);
-			return true;
-
-		} 
+		}
 		/* Column Iteration is same as above */
 		else {
 
-			if (number < n * col_size  && setSize)
+			if (number < n * col_size && setSize)
 				return false;
 
 			l++;
@@ -512,53 +494,36 @@ public class CA {
 
 					else {
 						subMatrix_temp[i][j] = subM_change[i];
-						codeMatrix_temp[i][j] = codeCost(rowSet.get(i),
-								number, subMatrix_temp[i][j]);
+						codeMatrix_temp[i][j] = codeCost(rowSet.get(i), number,
+								subMatrix_temp[i][j]);
 						Cost_temp += codeMatrix_temp[i][j];
 
 					}
 				}
 			}
 
-			double new_cost = Cost_temp
+			new_cost = Cost_temp
 					+ descriptCost(k, l, rowSet, Set_temp, subMatrix_temp);
 
-			subMatrix = null;
-			subMatrix = subMatrix_temp;
-			codeMatrix = null;
-			codeMatrix = codeMatrix_temp;
 			colSet = null;
 			colSet = Set_temp;
 
-			/* Update col - permutation, permutation - col relation */
-			try {
-				outs = readLine(new Path(outputPath + "/incD-" + cur_job),"a");		
-				Text read = new Text();
-				for (LineReader lr : outs) {
-
-					while (lr.readLine(read) > 0) {
-
-						if (read.getLength() == 0)
-							continue;
-						st1 = new StringTokenizer(read.toString(),"\t");
-						st1.nextToken();
-						st2 = new StringTokenizer(st1.nextToken()," ");
-						while(st2.hasMoreTokens())
-							col_permut[Integer.parseInt(st2.nextToken())] = l - 1;
-					}
-					
-				}
-			}
-			catch (Exception e) {
-				System.out.println("incdimesion");
-			}
-
-			Cost = new_cost;
-
-			System.out.println("current column cluster : " + colSet.toString());
-			cost_show.add(Cost);
-			return true;
 		}
+
+		subMatrix = null;
+		subMatrix = subMatrix_temp;
+		codeMatrix = null;
+		codeMatrix = codeMatrix_temp;
+
+		Cost = new_cost;
+		cost_show.add(Cost);
+		
+		if(cur_job.equals("r"))
+			nameChange(cur_job_output, row_nonzero, "assign", "nonzero");
+		else
+			nameChange(cur_job_output, col_nonzero, "assign", "nonzero");
+		
+		return true;
 
 	}
 
@@ -578,13 +543,14 @@ public class CA {
 		int iter;
 		int key;
 
+		boolean stop = false;
+
 		StringTokenizer st1, st2;
 		String cur_job = first;
 
 		double temp = 0;
-
-		Path row_job_output = new Path(outputPath + "/reg-r");
-		Path col_job_output = new Path(outputPath + "/reg-c");
+		Path cur_job_output;
+		Path cur_input;
 		Path row_result = new Path(outputPath + "/res-r");
 		Path col_result = new Path(outputPath + "/res-c");
 
@@ -595,36 +561,31 @@ public class CA {
 		ArrayList<Long> rowSet_temp = null;
 		ArrayList<Long> colSet_temp = null;
 		long[][] subMatrix_temp;
+		double[][] codeMatrix_temp;
 
-		long start, end;
+		while (!stop) {
 
-		while (true) {
-			
 			System.out.println("Regroup starts with " + cur_job);
-			
-			start = System.currentTimeMillis() / 1000;
-			
-			FileSystem fs = FileSystem.get(conf);
 
-			/* 
-			 * Initialize Data 
-			 * Remove old data
+			FileSystem fs = FileSystem.get(conf);
+			/*
+			 * Initialize Data Remove old data
 			 */
 			if (cur_job.equals("r")) {
-				if(k==1)
-					return;
-				fs.delete(row_job_output, true);
+
+				fs.delete(r_reg, true);
 				fs.delete(row_result, true);
-				conf.set("col_permut", arrToString(col_permut));
 
-			}
+				cur_job_output = r_reg;
+				cur_input = row_nonzero;
 
-			else {
-				if(l==1)
-					return;
-				fs.delete(col_job_output, true);
+			} else {
+
+				fs.delete(c_reg, true);
 				fs.delete(col_result, true);
-				conf.set("row_permut", arrToString(row_permut));
+
+				cur_job_output = c_reg;
+				cur_input = col_nonzero;
 
 			}
 			System.out.println("Sending Parameter " + cur_job);
@@ -643,17 +604,17 @@ public class CA {
 
 			job.setJobName("reGroup" + " " + cur_job);
 
-			FileInputFormat.addInputPath(job, new Path(outputPath
-					+ "/preProcess/" + cur_job));
+			FileInputFormat.addInputPath(job, cur_input);
+			FileOutputFormat.setOutputPath(job, cur_job_output);
 
-			if (cur_job.equals("r"))
-				FileOutputFormat.setOutputPath(job, row_job_output);
-			else
-				FileOutputFormat.setOutputPath(job, col_job_output);
+			MultipleOutputs.addNamedOutput(job, "subMatrix",
+					TextOutputFormat.class, IntWritable.class, Text.class);
+			MultipleOutputs.addNamedOutput(job, "assign",
+					TextOutputFormat.class, IntWritable.class, Text.class);
 
 			job.setMapperClass(Regroup_mapper.class);
 			job.setReducerClass(Regroup_combiner.class);
-			job.setCombinerClass(Regroup_combiner.class);
+			job.setCombinerClass(Regroup_reducer.class);
 			job.setPartitionerClass(naive_partitioner_reg.class);
 
 			job.setMapOutputKeyClass(IntWritable.class);
@@ -666,47 +627,10 @@ public class CA {
 			System.out.println("Start MapReduce " + cur_job);
 			job.waitForCompletion(true);
 
-			job = new Job(conf);
-			job.setJarByClass(CA.class);
-
-			if (cur_job.equals("r"))
-				FileInputFormat.addInputPath(job, row_job_output);
-			else
-				FileInputFormat.addInputPath(job, col_job_output);
-
-			FileOutputFormat.setOutputPath(job, new Path(outputPath + "/res-"
-					+ cur_job));
-
-			job.setJobName("reGroup" + " " + cur_job);
-
-			job.setMapperClass(RG_output_mapper.class);
-			job.setReducerClass(RG_output_reducer.class);
-			job.setMapOutputKeyClass(IntWritable.class);
-			job.setMapOutputValueClass(Text.class);
-
-			job.setOutputKeyClass(IntWritable.class);
-			job.setOutputValueClass(Text.class);
-
-			MultipleOutputs.addNamedOutput(job, "subMatrix",
-					TextOutputFormat.class, IntWritable.class, Text.class);
-			MultipleOutputs.addNamedOutput(job, "assign",
-					TextOutputFormat.class, IntWritable.class, Text.class);
-
-			job.setNumReduceTasks(1);
-			job.waitForCompletion(true);
-
-			end = System.currentTimeMillis() / 1000;
-			fw.print("Regroup " + cur_job + " takes");
-			fw.printf(" %,d seconds.\n", end - start);
-			
-			
-			
-			/* Recalculate subMatrix and permutations */
-			
-			start = System.currentTimeMillis() / 1000;
-
+			/* Recalculate subMatrix */
 			subMatrix_temp = new long[k][l];
 			Text read = new Text();
+			temp = 0;
 
 			/* Recalculate SubMatrices after row regrouping */
 			if (cur_job.equals("r")) {
@@ -717,27 +641,32 @@ public class CA {
 					rowSet_temp.add(0l);
 
 				/* Read Data from MapReduce Results */
-				LineReader lr = new LineReader(fs.open(new Path(outputPath
-						+ "/res-" + cur_job + "/subMatrix-r-00000")));
-				while (lr.readLine(read) > 0) {
+				for (LineReader lr : readLine(
+						new Path(cur_job_output.toString() + "/subMatrix"), "s")) {
 
-					if (read.getLength() == 0)
-						continue;
+					while (lr.readLine(read) > 0) {
 
-					st1 = new StringTokenizer(read.toString(), "\t");
-					key = Integer.parseInt(st1.nextToken());
+						if (read.getLength() == 0)
+							continue;
 
-					rowSet_temp.set(key, Long.parseLong(st1.nextToken()));
+						st1 = new StringTokenizer(read.toString(), "\t");
+						key = Integer.parseInt(st1.nextToken());
 
-					iter = 0;
-					st2 = new StringTokenizer(st1.nextToken(), " ");
+						rowSet_temp.set(
+								key,
+								rowSet_temp.get(key)
+										+ Long.parseLong(st1.nextToken()));
 
-					while (st2.hasMoreTokens())
-						subMatrix_temp[key][iter++] += Long.parseLong(st2
-								.nextToken());
+						iter = 0;
+						st2 = new StringTokenizer(st1.nextToken(), " ");
 
-					read.clear();
+						while (st2.hasMoreTokens())
+							subMatrix_temp[key][iter++] += Long.parseLong(st2
+									.nextToken());
 
+						read.clear();
+
+					}
 				}
 
 				/*
@@ -753,10 +682,11 @@ public class CA {
 						del_zero_r[i] = -1;
 				}
 
+				codeMatrix_temp = new double[j][l];
+
 				/* Case 1 : no zero cluster */
 				if (j == k) {
-
-					double[][] codeMatrix_temp = new double[k][l];
+					zero_cluster = false;
 
 					/* Calculate Cost of Result */
 					for (i = 0; i < k; i++) {
@@ -768,51 +698,18 @@ public class CA {
 						}
 					}
 
-					temp += descriptCost(k, l, rowSet_temp, colSet,
-							subMatrix_temp);
-
-					/* If the Result Does not reduce the Cost, End ReGroup */
-					if (temp >= Cost) {
-						fw.println("End Regroup\n");
-						return;
-					}
-
-					/* Cost is decreased. Change Jobname and re-do ReGroup */
-					else {
-						rowSet.clear();
-						rowSet = rowSet_temp;
-						
-						/* Update permutations */
-						lr = new LineReader(fs.open(new Path(outputPath
-								+ "/res-" + cur_job + "/assign-r-00000")));
-
-						String[] assign;
-						while (lr.readLine(read) > 0) {
-							assign = read.toString().split("\t");
-							row_permut[Integer.parseInt(assign[0])] = Integer
-									.parseInt(assign[1]);
-						}
-
-						Cost = temp;
-						codeMatrix = codeMatrix_temp;
-						subMatrix = subMatrix_temp;
-
-						cur_job = "c";
-
-					}
-
+				}
 				/* Case 2: zero cluster exists */
-				} else {
+				else {
+					zero_cluster = true;
+					conf.set("del_zero", arrToString(del_zero_r));
 
 					/* remove zero cluster */
 					rowSet_temp = (ArrayList<Long>) rowSet_temp.stream()
 							.filter((s) -> (s != 0))
 							.collect(Collectors.toList());
 
-					int nonzero_cluster = rowSet_temp.size();
-
-					double[][] codeMatrix_temp = new double[nonzero_cluster][l];
-					long[][] subMatrix_temp_2 = new long[nonzero_cluster][l];
+					long[][] subMatrix_temp_2 = new long[j][l];
 
 					int index;
 
@@ -835,48 +732,33 @@ public class CA {
 							temp += codeMatrix_temp[index][j];
 						}
 					}
-
-					temp += descriptCost(nonzero_cluster, l, rowSet_temp,
-							colSet, subMatrix_temp_2);
-
-					/* If the Result Does not reduce the Cost, End ReGroup */
-					if (temp >= Cost) {
-						fw.println("end Regroup\n");
-						return;
-					}
-
-					/* Cost is decreased. Change Jobname and re-do ReGroup */
-					else {
-						rowSet.clear();
-						rowSet = rowSet_temp;
-
-						lr = new LineReader(fs.open(new Path(outputPath
-								+ "/res-" + cur_job + "/assign-r-00000")));
-
-						String[] assign;
-						
-						/* Update permutations */
-						while (lr.readLine(read) > 0) {
-							assign = read.toString().split("\t");
-							row_permut[Integer.parseInt(assign[0])] = del_zero_r[Integer
-									.parseInt(assign[1])];
-						}
-
-						Cost = temp;
-						codeMatrix = codeMatrix_temp;
-						subMatrix = subMatrix_temp_2;
-
-						k = nonzero_cluster;
-
-						cur_job = "c";
-					}
+					subMatrix_temp = subMatrix_temp_2;
 
 				}
+
+				temp += descriptCost(rowSet_temp.size(), l, rowSet_temp,
+						colSet, subMatrix_temp);
+
+				/* If the Result Does not reduce the Cost, End ReGroup */
+				if (temp >= Cost)
+					stop = true;
+
+				/* Cost is decreased. Change Jobname and re-do ReGroup */
+				else {
+					rowSet.clear();
+					rowSet = rowSet_temp;
+					k = rowSet_temp.size();
+					Cost = temp;
+					codeMatrix = codeMatrix_temp;
+					subMatrix = subMatrix_temp;
+
+				}
+
 				System.out
 						.println("current row cluster : " + rowSet.toString());
 
 			}
-			
+
 			/* Column iteration is same as above */
 			else {
 
@@ -885,28 +767,30 @@ public class CA {
 				for (int i = 0; i < l; i++)
 					colSet_temp.add(0l);
 
-				LineReader lr = new LineReader(fs.open(new Path(outputPath
-						+ "/res-" + cur_job + "/subMatrix-r-00000")));
+				/* Read Data from MapReduce Results */
+				for (LineReader lr : readLine(
+						new Path(cur_job_output.toString() + "/subMatrix"), "s")) {
 
-				while (lr.readLine(read) > 0) {
+					while (lr.readLine(read) > 0) {
 
-					if (read.getLength() == 0)
-						continue;
+						if (read.getLength() == 0)
+							continue;
 
-					st1 = new StringTokenizer(read.toString(), "\t");
-					key = Integer.parseInt(st1.nextToken());
+						st1 = new StringTokenizer(read.toString(), "\t");
+						key = Integer.parseInt(st1.nextToken());
 
-					colSet_temp.set(key, Long.parseLong(st1.nextToken()));
+						colSet_temp.set(key, Long.parseLong(st1.nextToken()));
 
-					iter = 0;
-					st2 = new StringTokenizer(st1.nextToken(), " ");
+						iter = 0;
+						st2 = new StringTokenizer(st1.nextToken(), " ");
 
-					while (st2.hasMoreTokens())
-						subMatrix_temp[iter++][key] += Long.parseLong(st2
-								.nextToken());
+						while (st2.hasMoreTokens())
+							subMatrix_temp[iter++][key] += Long.parseLong(st2
+									.nextToken());
 
-					read.clear();
+						read.clear();
 
+					}
 				}
 
 				int[] del_zero_c = new int[l];
@@ -918,9 +802,10 @@ public class CA {
 						del_zero_c[i] = -1;
 				}
 
-				if (j == l) {
+				codeMatrix_temp = new double[k][j];
 
-					double[][] codeMatrix_temp = new double[k][l];
+				if (j == l) {
+					zero_cluster = false;
 
 					for (j = 0; j < k; j++) {
 						for (i = 0; i < l; i++) {
@@ -930,47 +815,16 @@ public class CA {
 						}
 					}
 
-					temp += descriptCost(k, l, rowSet, colSet_temp,
-							subMatrix_temp);
-
-					if (temp >= Cost) {
-						fw.println("End Regroup\n");
-						return;
-					}
-					/*
-					 * Cost is decreased. Change Jobname and re-do ReGroup
-					 */
-					else {
-						colSet.clear();
-						colSet = colSet_temp;
-
-						lr = new LineReader(fs.open(new Path(outputPath
-								+ "/res-" + cur_job + "/assign-r-00000")));
-
-						String[] assign;
-						while (lr.readLine(read) > 0) {
-							assign = read.toString().split("\t");
-							col_permut[Integer.parseInt(assign[0])] = Integer
-									.parseInt(assign[1]);
-						}
-
-						Cost = temp;
-						codeMatrix = codeMatrix_temp;
-						subMatrix = subMatrix_temp;
-
-						cur_job = "r";
-
-					}
-
 				} else {
+
+					zero_cluster = true;
+					conf.set("del_zero", arrToString(del_zero_c));
 
 					colSet_temp = (ArrayList<Long>) colSet_temp.stream()
 							.filter((s) -> (s != 0))
 							.collect(Collectors.toList());
-					int nonzero_cluster = colSet_temp.size();
 
-					double[][] codeMatrix_temp = new double[k][nonzero_cluster];
-					long[][] subMatrix_temp_2 = new long[k][nonzero_cluster];
+					long[][] subMatrix_temp_2 = new long[k][j];
 
 					int index;
 					/* Calculate Cost of Result */
@@ -991,53 +845,135 @@ public class CA {
 						}
 					}
 
-					temp += descriptCost(k, nonzero_cluster, rowSet,
-							colSet_temp, subMatrix_temp_2);
+					subMatrix_temp = subMatrix_temp_2;
 
-					if (temp >= Cost) {
-						fw.println("End Regroup\n");
-						return;
-					}
+				}
 
-					/*
-					 * Cost is decreased. Change Jobname and re-do ReGroup
-					 */
-					else {
-						colSet.clear();
-						colSet = colSet_temp;
+				temp += descriptCost(k, colSet_temp.size(), rowSet,
+						colSet_temp, subMatrix_temp);
 
-						lr = new LineReader(fs.open(new Path(outputPath
-								+ "/res-" + cur_job + "/assign-r-00000")));
-
-						String[] assign;
-						while (lr.readLine(read) > 0) {
-							assign = read.toString().split("\t");
-							col_permut[Integer.parseInt(assign[0])] = del_zero_c[Integer
-									.parseInt(assign[1])];
-						}
-
-						l = nonzero_cluster;
-						Cost = temp;
-						codeMatrix = codeMatrix_temp;
-						subMatrix = subMatrix_temp_2;
-
-						cur_job = "r";
-
-					}
+				if (temp >= Cost) {
+					stop = true;
+				}
+				/*
+				 * Cost is decreased. Change Jobname and re-do ReGroup
+				 */
+				else {
+					colSet.clear();
+					colSet = colSet_temp;
+					l = colSet_temp.size();
+					Cost = temp;
+					codeMatrix = codeMatrix_temp;
+					subMatrix = subMatrix_temp;
 
 				}
 
 				System.out.println("current column cluster : "
 						+ colSet.toString());
-			}
-			end = System.currentTimeMillis() / 1000;
 
-			fw.printf("Recalculate takes %,d seconds.\n", end - start);
+			}
+
+			conf.setBoolean("zero_cluster", zero_cluster);
+			conf.setInt("k", k);
+			conf.setInt("l", l);
+
+			System.out.println("reconstruct");
+			job = new Job(conf);
+			job.setJarByClass(CA.class);
+
+			job.setJobName("reGroup" + " " + cur_job);
+
+			if (cur_job.equals("r"))
+				MultipleInputs
+						.addInputPath(job, row_adj, TextInputFormat.class);
+			else
+				MultipleInputs
+						.addInputPath(job, col_adj, TextInputFormat.class);
+
+			MultipleInputs.addInputPath(job, new Path(cur_job_output.toString()
+					+ "/assign"), TextInputFormat.class);
+
+			FileOutputFormat.setOutputPath(job,
+					new Path(cur_job_output.toString() + "/temp"));
+
+			MultipleOutputs.addNamedOutput(job, "temp", TextOutputFormat.class,
+					Text.class, Text.class);
+			MultipleOutputs.addNamedOutput(job, "nonzero",
+					TextOutputFormat.class, Text.class, Text.class);
+
+			job.setMapperClass(Regroup_calc_mapper.class);
+			job.setReducerClass(Regroup_calc_reducer.class);
+			job.setMapOutputKeyClass(Text.class);
+			job.setMapOutputValueClass(Text.class);
+
+			job.setOutputKeyClass(Text.class);
+			job.setOutputValueClass(Text.class);
+
+			job.setNumReduceTasks(num_machine);
+
+			job.waitForCompletion(true);
+
+			/* Calculate nonzeros */
+			job = new Job(conf);
+			job.setJarByClass(CA.class);
+
+			job.setJobName("reGroup" + " " + cur_job);
+
+			if (cur_job.equals("r"))
+				MultipleInputs.addInputPath(job, col_nonzero,
+						TextInputFormat.class);
+			else
+				MultipleInputs.addInputPath(job, row_nonzero,
+						TextInputFormat.class);
+			MultipleInputs.addInputPath(job, new Path(cur_job_output.toString()
+					+ "/temp/temp"), TextInputFormat.class);
+
+			FileOutputFormat.setOutputPath(job,
+					new Path(cur_job_output.toString() + "/nonzero"));
+
+			MultipleOutputs.addNamedOutput(job, "adj", TextOutputFormat.class,
+					Text.class, Text.class);
+
+			job.setMapperClass(makeNew_split_mapper.class);
+			job.setCombinerClass(makeNew_split_comibner.class);
+			job.setReducerClass(makeNew_split_reducer.class);
+
+			job.setMapOutputKeyClass(Text.class);
+			job.setMapOutputValueClass(Text.class);
+
+			job.setOutputKeyClass(Text.class);
+			job.setOutputValueClass(Text.class);
+
+			job.setNumReduceTasks(num_machine);
+
+			job.waitForCompletion(true);
+
+			if (cur_job.equals("r")) {
+				nameChange(new Path(cur_job_output.toString() + "/nonzero"),
+						col_nonzero, "part", "nonzero");
+				if (zero_cluster)
+					nameChange(new Path(cur_job_output.toString()
+							+ "/temp/nonzero"), row_nonzero, "nonzero",
+							"nonzero");
+				else
+					nameChange(new Path(cur_job_output.toString() + "/assign"),
+							row_nonzero, "assign", "nonzero");
+			} else {
+				nameChange(new Path(cur_job_output.toString() + "/nonzero"),
+						row_nonzero, "part", "nonzero");
+				if (zero_cluster)
+					nameChange(new Path(cur_job_output.toString()
+							+ "/temp/nonzero"), col_nonzero, "nonzero",
+							"nonzero");
+				else
+					nameChange(new Path(cur_job_output.toString() + "/assign"),
+							col_nonzero, "assign", "nonzero");
+			}
+
+			cur_job = cur_job.equals("r") ? "c" : "r";
+
 			cost_show.add(Cost);
 
-			// } catch (Exception e) {
-			// System.out.println("regroup");
-			// }
 		}
 
 	}
@@ -1065,7 +1001,16 @@ public class CA {
 		mode = false;
 		setSize = false;
 
-		// try {
+		row_nonzero = new Path(outputPath + "/preProcess/r/nonzero");
+		row_adj = new Path(outputPath + "/preProcess/r/adj");
+
+		col_nonzero = new Path(outputPath + "/preProcess/c/nonzero");
+		col_adj = new Path(outputPath + "/preProcess/c/adj");
+		r_inc = new Path(outputPath + "/incD-r");
+		c_inc = new Path(outputPath + "/incD-c");
+
+		r_reg = new Path(outputPath + "/reg-r");
+		c_reg = new Path(outputPath + "/reg-c");
 
 		m = Integer.parseInt(args[2]);
 		n = Integer.parseInt(args[3]);
@@ -1075,33 +1020,33 @@ public class CA {
 		if (args.length > 4) {
 			int i = 4;
 			while (i < args.length) {
-				
+
 				if (args[i].equals("-set")) {
 					mode = true;
 					max_k = Integer.parseInt(args[++i]);
 					max_l = Integer.parseInt(args[++i]);
 				}
-				
+
 				else if (args[i].equals("-size")) {
 					setSize = true;
 					row_size = Double.parseDouble(args[++i]);
 					col_size = Double.parseDouble(args[++i]);
 					if (row_size >= 1 || col_size >= 1)
 						throw new Exception();
-				} 
-				
+				}
+
 				else if (args[i].equals("-data")) {
 					data = true;
 					inputFile = outputPath;
-				} 
-				
+				}
+
 				else if (args[i].equals("-machine")) {
 					num_machine = Integer.parseInt(args[++i]);
-				} 
-				
+				}
+
 				else if (args[i].equals("-rand"))
 					random = true;
-				
+
 				i++;
 			}
 		}
@@ -1147,9 +1092,6 @@ public class CA {
 		l = 1;
 		int i, j;
 
-		/* Initialize permutations */
-		row_permut = new int[m];
-		col_permut = new int[n];
 		try {
 
 			FileStatus[] fileStatus = fs.listStatus(new Path(outputPath
@@ -1331,20 +1273,17 @@ public class CA {
 			for (j = 0; j < l; j++) {
 				double x = (double) subMatrix[i][j]
 						/ (rowSet.get(i) * colSet.get(j) + 1);
-				if(x>0.00001)
+				if (x > 0.00001)
 					fw.print(String.format("[%.3f]", x));
-				else{
-					fw.print(String.format("[%5d]",0));
+				else {
+					fw.print(String.format("[%5d]", 0));
 				}
 			}
 			fw.println();
 		}
 		fw.println();
-		fw.println("cost decreased as "+cost_show.toString());
-		fw.println("Row Permutation Assignmnet");
-		fw.println(arrToString(row_permut));
-		fw.println("\nColumn Permutation Assignmnet");
-		fw.println(arrToString(col_permut));
+		fw.println("cost decreased as " + cost_show.toString());
+
 		fw.close();
 
 	}
@@ -1432,13 +1371,13 @@ public class CA {
 	public static ArrayList<LineReader> readLine(Path location, String start)
 			throws IOException {
 		FileSystem fileSystem = FileSystem.get(location.toUri(), conf);
-		CompressionCodecFactory factory = new CompressionCodecFactory(conf);
 		FileStatus[] items = fileSystem.listStatus(location);
 		ArrayList<LineReader> readLines = new ArrayList<>();
 		for (FileStatus item : items) {
 
 			// ignoring files like _SUCCESS
-			if (item.getPath().getName().startsWith("_") || !item.getPath().getName().startsWith(start)) {
+			if (item.getPath().getName().startsWith("_")
+					|| !item.getPath().getName().startsWith(start)) {
 				continue;
 			} else {
 				readLines.add(new LineReader(fileSystem.open(item.getPath())));
@@ -1446,22 +1385,48 @@ public class CA {
 		}
 		return readLines;
 	}
+
 	public static ArrayList<LineReader> readLine(Path location)
 			throws IOException {
 		FileSystem fileSystem = FileSystem.get(location.toUri(), conf);
-		CompressionCodecFactory factory = new CompressionCodecFactory(conf);
+
 		FileStatus[] items = fileSystem.listStatus(location);
 		ArrayList<LineReader> readLines = new ArrayList<>();
 		for (FileStatus item : items) {
 
 			// ignoring files like _SUCCESS
-			if (item.getPath().getName().startsWith("_") ) {
+			if (item.getPath().getName().startsWith("_")) {
 				continue;
 			} else {
 				readLines.add(new LineReader(fileSystem.open(item.getPath())));
 			}
 		}
 		return readLines;
+	}
+
+	public static void nameChange(Path fromPath, Path toPath, String fromName,
+			String toName) throws IOException {
+		FileStatus[] items = fs.listStatus(toPath);
+		for (FileStatus item : items) {
+			if (item.getPath().getName().startsWith(toName)) {
+				fs.delete(item.getPath(), true);
+			}
+		}
+
+		items = fs.listStatus(fromPath);
+		String name;
+		String[] split;
+
+		for (FileStatus item : items) {
+			if (item.getPath().getName().startsWith(fromName)) {
+				name = "";
+				split = item.getPath().toString().split("/");
+
+				name += toName + "-r-" + split[split.length - 1].split("-")[2];
+				fs.rename(item.getPath(), new Path(toPath.toString() + "/"
+						+ name));
+			}
+		}
 	}
 
 	public static String matrixToString(double[][] matrix) {

@@ -1,7 +1,6 @@
 package disco.IncDimension;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
@@ -13,10 +12,13 @@ public class IncDimension_combiner extends
 		Reducer<IntWritable, Text, IntWritable, Text> {
 	String job;
 	int k, l;
-	
+	int i;
 	Text val = new Text();
 	Text assign = new Text();
-	
+	long[] subM_change;
+	StringTokenizer st1, st2;
+	String ret;
+	int num;
 	@Override
 	public void setup(Context context) {
 		Configuration conf = context.getConfiguration();
@@ -26,56 +28,53 @@ public class IncDimension_combiner extends
 		l = conf.getInt("l", 0);
 	}
 
-	
 	@Override
 	public void reduce(IntWritable key, Iterable<Text> values, Context context)
 			throws IOException, InterruptedException {
-		long[] subM_change;
-		
-		if (job.equals("r")) {
-			subM_change = new long[l];
+
+		if (key.get() < 0) {
+			if (job.equals("r")) {
+				subM_change = new long[l];
+			} else {
+				subM_change = new long[k];
+			}
+
+			num=0;
+			for (Text line : values) {
+				
+				st1 = new StringTokenizer(line.toString(), "\t");
+				num+= Integer.parseInt(st1.nextToken());
+				i = 0;
+				st2 = new StringTokenizer(st1.nextToken(), " ");
+				
+				while (st2.hasMoreTokens())
+					subM_change[i++] += Long.parseLong(st2.nextToken());
+
+			}
+
+			val.set(num+"\t"+arrToString(subM_change));
+			context.write(key, val);
 		}
+
+		/*
+		 * Report (row or column numbers to split) + (values of decreased
+		 * nozeros in each cluster after split)
+		 */
 		else{
-			subM_change = new long[k];
-		}
-			
-		
-		String ret = "";
-		Iterator<Text> lines = values.iterator();
-		StringTokenizer st1,st2;
-		long num=0;
-		int i;
-		while (lines.hasNext()) {
-			
-			st1 = new StringTokenizer(lines.next().toString(), "\t");
-			num+=Long.parseLong(st1.nextToken());
-			
-			st2 = new StringTokenizer(st1.nextToken()," ");
-			
-			i=0;
-			while (st2.hasMoreTokens()) 
-				subM_change[i++]+=Long.parseLong(st2.nextToken());
-			
-			ret+=st1.nextToken()+" ";
+			for (Text line : values) {
+				context.write(key,line);
+			}	
 		}
 		
-		val.set(num+"\t"+arrToString(subM_change) + "\t"+ret);
-		
-		
-		/* Report (row or column numbers to split) 
-		 * + (values of decreased nozeros in each cluster after split) */ 
-		context.write(key, val);
-		
-		
+
 	}
-	
-	private static String arrToString(long[] arr){
-		String ret="";
-		for(long d:arr){
-			ret+=d+" ";
+
+	private static String arrToString(long[] arr) {
+		String ret = "";
+		for (long d : arr) {
+			ret += d + " ";
 		}
 		return ret;
 	}
-
 
 }

@@ -9,8 +9,8 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
 public class Preprocess_c_mapper extends
-		Mapper<LongWritable, Text, Text, Text> {
-	Text key=new Text();
+		Mapper<LongWritable, Text, IntWritable, Text> {
+	IntWritable key=new IntWritable();
 	Text value=new Text();
 	@Override
 	public void map(LongWritable arg0, Text line, Context context)
@@ -20,7 +20,7 @@ public class Preprocess_c_mapper extends
 		StringTokenizer st = new StringTokenizer(s[1]," ");
 		value.set(s[0]);
 		while(st.hasMoreTokens()){
-			key.set(st.nextToken());
+			key.set(Integer.parseInt(st.nextToken()));
 			context.write(key, value);
 		}
 	}

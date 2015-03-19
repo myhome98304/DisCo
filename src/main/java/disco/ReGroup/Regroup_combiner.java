@@ -1,7 +1,6 @@
 package disco.ReGroup;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
@@ -12,11 +11,17 @@ import org.apache.hadoop.mapreduce.Reducer;
 public class Regroup_combiner extends
 		Reducer<IntWritable, Text, IntWritable, Text> {
 
-	IntWritable key = new IntWritable();
+	Text value = new Text();
 	String job;
+	
 	int k, l;
 	int num_machine;
-
+	int[] value_change;
+	
+	int num,i;
+	
+	StringTokenizer st1, st2;
+	
 	@Override
 	public void setup(Context context) {
 		Configuration conf = context.getConfiguration();
@@ -29,37 +34,30 @@ public class Regroup_combiner extends
 	@Override
 	public void reduce(IntWritable key, Iterable<Text> values, Context context)
 			throws IOException, InterruptedException {
-
-		int[] value_change;
-		String ret = "";
-		Iterator<Text> lines = values.iterator();
 		
-		if (job.equals("r"))
-			value_change = new int[l];
-		else
-			value_change = new int[k];
-
-		StringTokenizer st1, st2;
-		int num=0;
-		while (lines.hasNext()) {
-			int i = 0;
-			st1 = new StringTokenizer(lines.next().toString(), "\t");
-			num+= Integer.parseInt(st1.nextToken());
-			st2 = new StringTokenizer(st1.nextToken(), " ");
-			while (st2.hasMoreTokens())
-				value_change[i++] += Long.parseLong(st2.nextToken());
-			ret += st1.nextToken()+" ";
-			
+		if(key.get()<0){
+			if (job.equals("r"))
+				value_change = new int[l];
+			else
+				value_change = new int[k];
+			num=0;
+			for(Text line : values) {
+				i = 0;
+				st1 = new StringTokenizer(line.toString(), "\t");
+				num+= Integer.parseInt(st1.nextToken());
+				st2 = new StringTokenizer(st1.nextToken(), " ");
+				while (st2.hasMoreTokens())
+					value_change[i++] += Long.parseLong(st2.nextToken());	
+			}
+			value.set(num + "\t" + arrToString(value_change));
+			context.write(key, value);
 		}
-
-		/*
-		 * Key : cluster number Value : nonzeros of each cluster corresponds to
-		 * row cluster
-		 */
+		else{
+			for(Text line : values) {
+				context.write(key,line);
+			}
+		}
 		
-		context.write(key, new Text(num + "\t" + arrToString(value_change) + "\t"
-				+ ret));
-
 	}
 
 	private static String arrToString(int[] arr) {

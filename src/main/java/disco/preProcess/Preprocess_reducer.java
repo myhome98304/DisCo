@@ -1,25 +1,50 @@
 package disco.preProcess;
 
 import java.io.IOException;
-import java.util.Iterator;
+import java.util.StringTokenizer;
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 
-public class Preprocess_reducer extends Reducer<Text, Text, Text, Text> {
+public class Preprocess_reducer extends Reducer<IntWritable, Text, IntWritable, Text> {
 	Text value = new Text();
+	Text number = new Text();
+	StringTokenizer st;
+	MultipleOutputs<IntWritable, Text> mos;
+	int num;
 
 	@Override
-	public void reduce(Text key, Iterable<Text> values, Context context)
+	protected void cleanup(Context context)
 			throws IOException, InterruptedException {
-		Iterator<Text> val = values.iterator();
+		// TODO Auto-generated method stub
+		mos.close();
+	}
+	@Override
+	protected void setup(Context context)
+			throws IOException, InterruptedException {
+		// TODO Auto-generated method stub
+		mos = new MultipleOutputs<IntWritable, Text>(context);
+	}
+	@Override
+	public void reduce(IntWritable key, Iterable<Text> values, Context context)
+			throws IOException, InterruptedException {
+		
 		String ret = "";
-
-		while (val.hasNext())
-			ret += val.next().toString() + " ";
+		num=0;
+		
+		for(Text line :values){
+			st = new StringTokenizer(line.toString(),"\t");
+			num += Integer.parseInt(st.nextToken());
+			ret += st.nextToken() + " ";
+		}
+		
+		number.set(0+"\t"+num);
 		value.set(ret);
-		context.write(key, value);
+		
+		mos.write("adj", key, value,"adj/adj");
+		mos.write("nonzero", key, number,"nonzero/nonzero");
 	}
 
 }

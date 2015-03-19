@@ -1,7 +1,6 @@
 package disco.IncDimension;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
@@ -16,17 +15,28 @@ public class IncDiemnsion_mapper extends
 	Text value = new Text();
 	String job;
 
-	int m, n;
-	int[] row_permut;
-	int[] col_permut;
+	int k, l;
+
 	long[] rowSet;
 	long[] colSet;
 
 	long[][] subMatrix;
+	long[] subM_change;
+	String subM;
 
+	int index;
+	int cluster;
+
+	double partSum_aft;
 	double partSum_bef = 0;
+
+	long numof_maxShannon;
 	int max_Shannon;
-	int k, l;
+
+	StringTokenizer st1;
+	StringTokenizer st2;
+
+	int i;
 
 	@Override
 	public void setup(Context context) {
@@ -41,8 +51,6 @@ public class IncDiemnsion_mapper extends
 
 		k = conf.getInt("k", 0);
 		l = conf.getInt("l", 0);
-		m = conf.getInt("m", 0);
-		n = conf.getInt("n", 0);
 
 		rowSet = new long[k];
 		colSet = new long[l];
@@ -50,22 +58,6 @@ public class IncDiemnsion_mapper extends
 		partSum_bef = Double.parseDouble(conf.get("partSum_bef", ""));
 
 		StringTokenizer st;
-
-		int i;
-
-		row_permut = new int[m];
-		i = 0;
-
-		st = new StringTokenizer(conf.get("row_permut", ""), " ");
-		while (st.hasMoreElements())
-			row_permut[i++] = Integer.parseInt(st.nextToken());
-
-		col_permut = new int[n];
-		i = 0;
-
-		st = new StringTokenizer(conf.get("col_permut", ""), " ");
-		while (st.hasMoreElements())
-			col_permut[i++] = Integer.parseInt(st.nextToken());
 
 		i = 0;
 		st = new StringTokenizer(conf.get("rowSet", ""), "[,] ");
@@ -98,32 +90,32 @@ public class IncDiemnsion_mapper extends
 	public void map(LongWritable arg0, Text line, Context context)
 			throws IOException, InterruptedException {
 
-		int[] subM_change;
-		double partSum_aft;
-		int index;
-		long numof_maxShannon;
+		st1 = new StringTokenizer(line.toString(), "\t");
 
-		StringTokenizer st = new StringTokenizer(line.toString(), "\t ");
+		index = Integer.parseInt(st1.nextToken());
+		cluster = Integer.parseInt(st1.nextToken());
 
-		index = Integer.parseInt(st.nextToken());
+		key.set(index);
+		subM = st1.nextToken();
+
+		if (cluster != max_Shannon) {
+			value.set(cluster + "\t" + subM);
+			context.write(key, value);
+			return;
+		}
+
+		i = 0;
+
+		st2 = new StringTokenizer(subM, " ");
 
 		if (job.equals("r")) {
 			/* If given row is not in the target cluster, return */
-			if (row_permut[index] != max_Shannon)
-				return;
 
-			subM_change = new int[l];
+			subM_change = new long[l];
 			numof_maxShannon = rowSet[max_Shannon];
 
-			/* Parse adjacency list */
-			while (st.hasMoreTokens()) {
-				try {
-					subM_change[col_permut[Integer.parseInt(st.nextToken())]]++;
-				} catch (Exception e) {
-					System.out.println("Out of Range");
-				}
-
-			}
+			while (st2.hasMoreTokens())
+				subM_change[i++] = Long.parseLong(st2.nextToken());
 
 			partSum_aft = 0;
 
@@ -133,44 +125,57 @@ public class IncDiemnsion_mapper extends
 						subMatrix[max_Shannon][c] - subM_change[c]);
 
 			partSum_aft /= numof_maxShannon - 1;
+			
+			if (partSum_aft < partSum_bef) {
+				value.set(k + "\t" + subM);
+				context.write(key, value);
+				key.set(-1);
+				value.set(1 + "\t" + subM);
+				context.write(key, value);
+			}
+
+			else {
+				value.set(cluster + "\t" + subM);
+				context.write(key, value);
+			}
+
 
 		} else {
 			/* If given column is not in the target cluster, return */
-			if (col_permut[index] != max_Shannon)
-				return;
 
-			subM_change = new int[k];
+			subM_change = new long[k];
+
 			numof_maxShannon = colSet[max_Shannon];
 
-			/* Parse adjacency list */
-			while (st.hasMoreTokens()) {
-				try {
-					subM_change[row_permut[Integer.parseInt(st.nextToken())]]++;
-				} catch (Exception e) {
-					System.out.println("Out of Range");
-				}
-
-			}
+			while (st2.hasMoreTokens())
+				subM_change[i++] = Long.parseLong(st2.nextToken());
 
 			partSum_aft = 0;
- 
+
 			for (int r = 0; r < k; r++)
 				partSum_aft += codeCost(numof_maxShannon - 1, rowSet[r],
 						subMatrix[r][max_Shannon] - subM_change[r]);
 
 			partSum_aft /= numof_maxShannon - 1;
 
+			if (partSum_aft < partSum_bef) {
+				value.set(l + "\t" + subM);
+				context.write(key, value);
+				key.set(-1);
+				value.set(1 + "\t" + subM);
+				context.write(key, value);
+			}
+
+			else {
+				value.set(cluster + "\t" + subM);
+				context.write(key, value);
+			}
 		}
 
 		/*
 		 * If Delete a line decreases the cost, report to reducer Key : trash
 		 * value 1 Value : row or column number + splitted adjacency list
 		 */
-		if (partSum_aft < partSum_bef)
-			context.write(new IntWritable(), new Text(1 + "\t"
-					+ arrToString(subM_change) + "\t" + index));
-		else
-			return;
 
 	}
 
@@ -182,14 +187,6 @@ public class IncDiemnsion_mapper extends
 		return (m * n)
 				* ((prob == 0 ? 0 : prob * Math.log(1 / prob)) + (1 - prob == 0 ? 0
 						: (1 - prob) * Math.log(1 / (1 - prob))));
-	}
-
-	private static String arrToString(int[] arr) {
-		String ret = "";
-		for (int d : arr) {
-			ret += d + " ";
-		}
-		return ret;
 	}
 
 }
