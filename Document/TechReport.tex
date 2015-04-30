@@ -1,0 +1,340 @@
+\documentclass[10pt]{article}
+\usepackage[top=3cm, bottom=3cm, left=3cm, right=3cm]{geometry}
+\usepackage{times}
+\usepackage{amsmath,amssymb, graphicx}
+\usepackage[ruled,linesnumbered]{algorithm2e}
+\usepackage{algorithmic}
+\usepackage{mdwlist}
+\usepackage{color}
+\usepackage{verbatim}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+%\newcommand{\QED}{ \hfill {\bf QED}}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proof}{Proof}
+\DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator*{\argmax}{argmax}
+\begin{document}
+	
+	
+	\title{
+		Co-clustering with High Machine Scalability
+	}
+	
+	%\author{
+	%	 {\em U Kang} \\
+	%	     School of Computer Science\\
+	%         Carnegie Mellon University\\
+	%	     {\tt ukang@cs.cmu.edu}
+	%        }
+	
+	
+	\maketitle
+	
+	\begin{abstract}
+		\emph{DisCo}, the clustering method using MapReduce, is introduced in 2008. It requires the main thread to collect the assignment of cluster to all rows and columns, and broadcast the assignment to all mappers before the each MapReduce task starts. The time complexity of this process is only related with number of rows and column. Therefore, although the matrix is sparse or not, gathering and broadcasting the cluster assignment takes $O(m+n)$ times. In this paper, we introduce a improved version of DisCo, by deleting it's bottleneck processes.
+	\end{abstract}
+		\begin{table}
+			
+			\begin{tabular}{c p{15cm}}
+				Symbol & Definition \\ \hline
+				$A$ & the $m$ by $n$ matrix \\ 
+				$m$, $n$ &  Number of rows and columns \\ 
+				$i$, $j$ & Row and Column indices \\
+				$radj, cadj$ & Row and column adjacency list \\
+				$radj_i$, $cadj_j$ & Row adjacency list of row i, column adjacency list of column j \\
+				$a_{i,j}$ & $(i,j)$ element of $A$ \\ \hline
+				$r, c$ & Cluster assignment of row, column \\
+				$r(i)$ & Cluster assignment of row $i$ \\
+				$c(j)$ & Cluster assignment of column $j$ \\
+				$I(v)$ & Set of row indices with $r(i)=v$ \\
+				$J(w)$ & Similar to $I(v)$, but for columns \\
+				$R, C$ & Size of row, column cluster \\
+				$R(v)$ & Size of row cluster $v$ \\
+				$C(w)$ & Size of column cluster $w$ \\ \hline			
+				$S$ & $k \times l$ statistic matrix \\
+				$k$, $l$ & Size of row, column cluster, respectly \\
+				$v$, $w$ & row and column cluster index \\
+				$S_{v,w}$ & The $(v,w)$ element of $S$\\
+				$S_{v,:}$ & $v$th row vector of $S$\\
+				$S_{:,w}$ & $w$th column vector of $S$\\
+				$rst_i$ & Row Statistic vector of size $l$ driven by $radj_i$ and $c$ \\
+				$cst_j$ & Similar to $rst_i$, but for columns \\ \hline
+				$Rdata$ & HDFS sequence file of row information\\
+				$Cdata$ & HDFS sequence file of column information\\
+				$Rdata_i$ & $(key,value)$ pair of sequence file $Rdata$. $(key,value)=(i,(r(i),rst_i,radj_i))$\\
+				$Cdata_j$ & $(key,value)$ pair of sequence file $Cdata$. $(key,value)=(j,(c(j),cst_j,cadj_j))$\\ \hline
+			\end{tabular}
+			\caption{Definition of Symbols}
+		\end{table}
+		
+	\section{Itroduction~}
+	Clustering is one of the key issues of graph mining to find valuable knowledges from the raw data. As the graph size is getting bigger, the methods to manage these big dataset is also needed. The \emph{DisCo} is one of the clustering methods managing big data by using Map-Reduce introduced in 2008. Each task of Disco is consisted with  broadcasting parameter $r$ and $c$, MapReduce job, modify $r(i)$, $c(j)$ for all rows and columns. As $m$ and $n$ grows, the most burden part is broadcasting the $r(i)$, $c(j)$. The biggest problem of DisCo is, broadcasting process has no machine scalability. Whether the matrix is sparse or not, amount of information that the main thread should broadcast is same as $O(m+n)$. Therefore the machine scalability is very poor as the row and column dimension getting bigger. \newline Our main contribution is giving DisCo to have higher machine scalability, i.e. removing broadcasting process. By this method, we removed the broadcasting, gathering process from the all MapReduce tasks, and having good machine scalability.
+	
+
+	\section{Background : DisCo}
+	DisCo is consisted with two main phases. First phase is pre-processing, making row, column adjacency list as sequence file on HDFS as follows.
+	\begin{center}
+		Key : $i$ \\Value : $radj_i$
+	\end{center} 
+	Second phase is Co-Clustering process. Before the DisCo Co-Clustering the row once, it broadcasts $S,c$ to all mapper. The space complexity of the parameters is $O(k \times l + n)$. Because the broadcasting process has no machine scalability, as the $n$ getting bigger, the time to broadcasting parameters is higher whether the adjacency matrix is sparse or environment has many machines. This is main disadvantage of DisCo. Also, the CollectResult() is conducted by main thread which requares $O(m)$ calculation.\\
+	\begin{algorithm}[H]            
+		\DontPrintSemicolon
+		\label{cc-disco}
+		\caption{CC($A, k, l$)}
+		Initialize $r$ and $c$\\
+		preprocess()\\
+		\Repeat{cost does not decrease}{
+			CC-MapReduce() \Begin{
+			Broadcast $c$, $S$ to all mapper.\\
+			CCRowMapper(key $key$, value $value$)\Begin{
+				$(key,value)=(i,rad_i)$\\
+				$rst_i=\emph{row statistic}(radj_i, c)$
+				\For{$v=1..k$}{
+					\If{assigning $i$ to $v$ would lower cost}{
+						$r(i)=v$	
+					}
+				}
+				$Out(r(i),(rst_i,i))$\\
+			}
+			CCRowReducer(key $key$, values $V$) \\
+			\Begin{
+				$v=key$\\
+				$S_v$= empty array of size $l$
+				$I_v=\emptyset$
+				\For{$(rst_i, i) \in V$}{
+					$S_v = \emph{comibine statistics}(S_v,rst_i)$\\
+					$I_v = I_v \cup {i}$\\
+				}
+				$Out(v,(S_v,I_v))$
+			}
+
+				}
+			CollectResults()
+			\Begin{\tcc{Conducted by main thread}
+				$S=$ $k$ by $l$ empty matrix\\
+				\For{reducer output $(v, (S_v,I_v))$}{
+					$S_{v,:} =\emph{comibine statistics}( S_{v,:},S_v)$
+					\For{$i \in I_v$}{
+						$r(i)=v$
+					}
+				}
+			}
+			
+			Do the same for columns	\\
+		}
+		\Return $r$ and $c$
+		
+	\end{algorithm}
+	
+	
+\begin{comment}
+	\section{Increase the cluster~}
+	Both DisCo and our implementation requires the mapper to know two parameters $r(i), rst_i$ of each row $i$ to determine whether to send row $i$ to new cluster or not. In DisCo implementation, these parameters sent from main thread. On the other hand, since the input contains $r(i), rst_i$, parameter does not have to sent from main thread. So, main thread dosen't need to maintain or gather the cluster assingnment information. The parameters that the main thread should maintain, gather and broadcast is $S, k, l, R$ and $C$. Update $S, R$ as $S_{v,:} = S_{v,:}-S_{k+1,:}, R(v) = R(v)-R(k+1), k=k+1$ after the MapReduce job completes. Replace $radj$ to reducer output.\\
+	\begin{algorithm}[H]           
+		\DontPrintSemicolon
+		\KwIn{$Rdata$}
+		\KwResult{Split one row cluster into two subcluster}
+		
+		$t = \emph{Select Cluster to Split()}$\tcc{Select index of row cluster to be splitted}
+		IncCluster-Mapper(key $key$, value $value$)\tcc{Map only task}
+		\KwIn{$(key,value)=Rdata_i$}
+		\KwOut{$Rdata$, $list$\\ \tcc{$list$: set of $(1,rst_i)$ if row $i$ is removed from the clsuter}}
+		\Begin{
+			$(key,value)=(i,(r(i),rst_i,radj_i))$\\
+			\If{$r(i)\ne t$}{
+				$Out(key,value)$ to $Rdata$
+			}
+			
+			\Else{
+				\If{$Remove?(t,i)$}{\tcc{Deceide whether to remove row $i$ from cluster $t$}
+					$value=(k+1,rst_i,radj_i)$\\
+					$Out(key,value)$ to $Rdata$\\
+					$Out(1,(1,rst_i))$ to $list$
+				}
+				\Else{
+					$Out(key,value)$;
+				}
+			}
+		}
+		\caption{IncCluster(in case of row split)}
+	\end{algorithm}
+	\begin{algorithm}[H]
+		\caption{IncCluster(Conitnue..)}
+		IncCluster-Calculator\tcc{MapReduce task}
+		\KwIn{$list$}
+		\KwOut{$R(k+1),S_{k+1,:}$}
+		\Begin{
+			IncCluster-calc-Mapper(key $key$, value $value$)
+			
+			\Begin{
+				$x=$ arbitrary value of $0$ to $1$\\
+				$Output(x\times NumOfReducer, value)$
+			}
+			IncCluster-calc-Reducer(key $key$, values $Values[]$)\\
+			\Begin{
+				$S_{k+1,:}=$empty array of size $l$\\
+				$R(k+1)=0$\\
+				\For{$value\in Values$}{
+					$(1,rst_i)=value$\\
+					$S_{k+1,:}=\emph{combine statistic}(S_{k+1,:},rst_i)$\\
+					$R(k+1)=R(k+1)+1$
+				}
+				$Out(0,(R(k+1),\ \ S_{k+1,:}))$
+			}
+			Merge all reducer output to $R(k+1),S_{k+1,:}$\\
+		}
+		$k=k+1$\\
+		$R(t)=R(t)-R(k+1)$\\
+		Add new row vectoer $S_{k+1,:}$ to $S$.\\
+		All process are same for splitting column.\\
+		
+		
+	\end{algorithm}
+	
+\end{comment}
+	
+	\section{Co-Clustering without broadcasting~}
+	Our method is consisted with two phases. First is  preprocessing the data. The difference between DisCo and our method in preprocessing data is that the initialized $r, c$ is broadcasted to all mapper to set $r(i)$ and calculate $rst_i$ for all row index $i$.
+	\begin{center}
+		Key : $i$\\
+		Value :$\ \ r(i),\ \  rst_i, \ \ radj_i$ 
+	\end{center}
+	It is same for column. These two MapReduce tasks are the \emph{only tasks} requires $r$ and $c$ need to be broadcasted.\newline \newline
+	The sceond phase is Co-Clustering. The difference between DisCo and our method is the parameter should be maintained, gathered and broadcasted is only $S$. The space complexity of the paramter is $O(k\times l)$ while the DisCo requires $O(n)$ data to run the row coclustering task. The key idea to remove broadcasting $c$ from all Co-Clustering the row is make the data already has the information of $rst_i$. In the line $6$ of Algorithm\ref{cc-disco}, $rst_i$ is calcluated by $radj_i$ and $c$. If the data already has $radj_i$, then broadcasting $c$ is unnecessary.\newline In summary, row co-clustering requires $rst_i$ to change $r(i)$ of all rows and $cst_j$ of all columns. Our key idea is is let the data already has $rst_i$, and make the result change $r(i)$ and $cst_j$ within one row coclustering task. For acheiving this, our method contains one Map-only task, two MapReduce tasks.
+
+	\begin{enumerate}
+		\item CC-Mapper : Map-Only Tasks. Takes $Rdata$, $Cdata$ and return $Rdata$ and following three types of data for oncoming MapReduce tasks
+		\begin{enumerate}
+			\item $S_{part}$ : set of $(r(i),(1,rst_i))$ to update $S,\ \ R$
+			\item $Rdata_{part}$: set of $(r(i),radj_i)$ to calculate $cst_j$ of all column $j$
+			\item $Cdata_{part}$: set of $(j,(c(j),cadj_j))$ to reconstruct $Cdata$
+		\end{enumerate}
+		\item CC-Constructor : MapReduce Task. Takes $Rdata_{part}$ and $Cdata_{part}$ to construct $Cdata$
+		\item CC-Collector : MapReduce Task. Takes $S_{part}$ to update $S$ and $R$
+	\end{enumerate}
+	
+		\begin{algorithm}[H]           
+			\DontPrintSemicolon
+			
+			\caption{CC-\emph{new}($A, k, l$)}
+			\Repeat{cost does not decrease}{
+				CC-Mapper()\\
+				CC-Constructor()\\
+				CC-Collector()
+				
+				Do the same for columns	\\
+			}
+			\Return $r$ and $c$
+			
+		\end{algorithm}
+	\begin{algorithm}[H]
+		\DontPrintSemicolon
+			
+		CC-\emph{new}-Mapper(key $key$, value $value$)\tcc{Map only task}
+		\KwIn{$Rdata_i,Cdata_j$}
+		\KwOut{$Rdata,S_{part},Rdata_{part},Cdata_{part}$}
+	
+		\Begin{
+			\If{data form is $Rdata$}{
+				$(i,(r(i),rst_i,radj_i))=(key,value)$\\
+				\For{$v=1..k$}{
+					\If{assigning $i$ to $v$ would lower cost}{
+						$r(i)=v$	
+					}
+					
+				}
+				$Rdata_i=(r(i), rst_i,radj_i)$\\
+				$Out(i,Rdata_i)$ to $Rdata$\\
+				$Out(r(i), (1,rst_i))$ to $S_{part}$\\
+				$Out(r(i),(i, radj_i))$ to $Radat_{part}$\\
+			}
+			\Else{
+				$(j,(c(j),cst_j,cadj_j))=(key,value)$\\
+				$Out(j,(c(j),cadj_j))$\\
+			}
+		}
+		\caption{CC-Mapper}
+	\end{algorithm}
+	Note that the line 28  of Algorithm 4 calculate $cst_j$ with $Bag$, which is hashmap having tuple as (cluster id, set of   indices). DisCo calculate $cst_j$ using $cadj_j$ and $r$, but most of Co-Clustering algorithm such as \emph{CrossAssociation} needs only $Bag$ to calculate $cst_j$.\\
+	\begin{algorithm}
+		\KwIn{$Rdata_{part}, Cdata_{part}$}
+		\KwOut{$Cdata$}
+		\Begin{
+			CC-Const-Mapper(key $key$, value $value$)
+			\Begin{
+				\If{data has form $Rdata_i$}{
+					$(r(i),radj_i)=(key,value)$\\
+					\For{$j \in radj_i$}{
+						$Out(j,(r(i),i))$
+					}
+				}
+				\Else{
+					$Out(key,value)$\\
+				}
+				
+			}
+			CC-const-Reducer(key $key$, values $Values[]$)\\
+			\Begin{
+				$key=j$\\
+				$Bag$ = empty HashMap. \\ 
+				$cst_j=$empty array of size $k$\\
+				\For{$value\in Values$}{
+					\If{$value=(c(j),cadj_j)$}{
+						continue
+					}
+					\Else{
+						$(v,i)=value$\\
+						add $i$ to $Bag.get(v)$
+					}
+				}
+				$Bag$ became set of tuple ($v$, set of row index $i$ with $r(i)=v$)\\
+				$cst_j = \emph{column statistic}(Bag)$\\
+				$Cdata_j = (c(j),cst_j, cadj_j)$\\
+				$Out(j,Cdata_j)$ to $Cdata$
+			}
+			\caption{CC-Constructor}
+		}
+	\end{algorithm}
+
+	\begin{algorithm}[H]
+		\KwIn{$S_{part}$}
+		\KwOut{$S, R$}
+		\Begin{
+			CC-collect-Mapper(key $key$, value $value$)
+			\Begin{
+				$(r(i),(1,rst_i))=(key,value)$ for some row $i$\\
+				$x=$ arbitrary value of $0$ to $1$\\
+				$key = (r(i)+x)\times NumOfReducer$\\\tcc{To make data spreads to all reducer equivalently}
+				$Out(key,value)$\\ 
+			}
+			CC-collect-Reducer(key $key$, values $Values[]$)\\
+			\Begin{
+				$v = (key-(key \%NumOfReducer ))\div NumOfReducer$\\
+				$S_{v,:}$= empty array of size $l$\\
+				$R(v)=0$\\
+				\For{$value\in Values$}{
+					$value = (1, rst_i)$ for some row $i$\\
+					$R(v)=R(v)+1$\\
+					$S_{v,:} = \emph{comibine statistics}(S_{v,:},rst_i)$\\
+				}
+				
+				$Out(v,(R(v),S_{v,:}))$ to $S$
+			}
+			Combine all reducer output to $R,S$\\
+		}
+		Update $R,S$\\
+		Update $H$
+		\caption{CC-Collector}
+	\end{algorithm}
+	
+
+	
+	\section{Experiment~}
+		Our method require several intermediate data, but showed good machine scalablity. DisCo also showed the good machine scalabiltiy in MapReduce task and it is faster than our methods if we compare only MapReduce task. But, DisCo takes a lot of time to broadcast the parameter as $m$, $n$ gets bigger, even if the MapReduce task takes less time than ours. The number of machines, density of the data are the two factor of the Co-Clustering to decide which method to choose. The conclusion is, if the data is sparse and the enviornment has lots of machines, our method is better than DisCo.
+		
+	\section{Colclusion~}
+
+\end{document}

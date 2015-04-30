@@ -1,0 +1,221 @@
+!SESSION 2015-01-28 11:59:24.876 -----------------------------------------------
+eclipse.buildId=4.4.0.I20140606-1215
+java.version=1.8.0_25
+java.vendor=Oracle Corporation
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=ko_KR
+
+!ENTRY org.eclipse.osgi 4 0 2015-01-28 11:59:25.421
+!MESSAGE error loading hook: org.eclipse.fx.osgi.fxloader.FXClassLoadingConfigurator
+!STACK 0
+java.lang.NoClassDefFoundError: org/eclipse/osgi/baseadaptor/HookConfigurator
+	at java.lang.ClassLoader.defineClass1(Native Method)
+	at java.lang.ClassLoader.defineClass(Unknown Source)
+	at java.security.SecureClassLoader.defineClass(Unknown Source)
+	at java.net.URLClassLoader.defineClass(Unknown Source)
+	at java.net.URLClassLoader.access$100(Unknown Source)
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at java.net.URLClassLoader.findClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	at java.lang.Class.forName0(Native Method)
+	at java.lang.Class.forName(Unknown Source)
+	at org.eclipse.osgi.internal.hookregistry.HookRegistry.loadConfigurators(HookRegistry.java:185)
+	at org.eclipse.osgi.internal.hookregistry.HookRegistry.initialize(HookRegistry.java:106)
+	at org.eclipse.osgi.internal.framework.EquinoxContainer.<init>(EquinoxContainer.java:73)
+	at org.eclipse.osgi.launch.Equinox.<init>(Equinox.java:31)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.startup(EclipseStarter.java:297)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:232)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(Unknown Source)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)
+	at java.lang.reflect.Method.invoke(Unknown Source)
+	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:648)
+	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:603)
+	at org.eclipse.equinox.launcher.Main.run(Main.java:1465)
+	at org.eclipse.equinox.launcher.Main.main(Main.java:1438)
+Caused by: java.lang.ClassNotFoundException: org.eclipse.osgi.baseadaptor.HookConfigurator
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at java.net.URLClassLoader.findClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	... 27 more
+
+!ENTRY org.eclipse.osgi 4 0 2015-01-28 11:59:25.426
+!MESSAGE error loading hook: org.eclipse.fx.osgi.patch.PFConfigurator
+!STACK 0
+java.lang.NoClassDefFoundError: org/eclipse/osgi/baseadaptor/HookConfigurator
+	at java.lang.ClassLoader.defineClass1(Native Method)
+	at java.lang.ClassLoader.defineClass(Unknown Source)
+	at java.security.SecureClassLoader.defineClass(Unknown Source)
+	at java.net.URLClassLoader.defineClass(Unknown Source)
+	at java.net.URLClassLoader.access$100(Unknown Source)
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at java.net.URLClassLoader.findClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	at java.lang.Class.forName0(Native Method)
+	at java.lang.Class.forName(Unknown Source)
+	at org.eclipse.osgi.internal.hookregistry.HookRegistry.loadConfigurators(HookRegistry.java:185)
+	at org.eclipse.osgi.internal.hookregistry.HookRegistry.initialize(HookRegistry.java:106)
+	at org.eclipse.osgi.internal.framework.EquinoxContainer.<init>(EquinoxContainer.java:73)
+	at org.eclipse.osgi.launch.Equinox.<init>(Equinox.java:31)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.startup(EclipseStarter.java:297)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:232)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(Unknown Source)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)
+	at java.lang.reflect.Method.invoke(Unknown Source)
+	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:648)
+	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:603)
+	at org.eclipse.equinox.launcher.Main.run(Main.java:1465)
+	at org.eclipse.equinox.launcher.Main.main(Main.java:1438)
+Caused by: java.lang.ClassNotFoundException: org.eclipse.osgi.baseadaptor.HookConfigurator
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.net.URLClassLoader$1.run(Unknown Source)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at java.net.URLClassLoader.findClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	... 27 more
+
+!ENTRY org.eclipse.fx.ide.java6 4 0 2015-01-28 11:59:34.776
+!MESSAGE FrameworkEvent ERROR
+!STACK 0
+org.osgi.framework.BundleException: Could not resolve module: org.eclipse.fx.ide.java6 [522]
+  Unresolved requirement: Require-Capability: osgi.ee; filter:="(&(osgi.ee=JavaSE)(version>=1.3)(!(version>=1.7)))"
+
+	at org.eclipse.osgi.container.Module.start(Module.java:434)
+	at org.eclipse.osgi.container.ModuleContainer$ContainerStartLevel.incStartLevel(ModuleContainer.java:1582)
+	at org.eclipse.osgi.container.ModuleContainer$ContainerStartLevel.incStartLevel(ModuleContainer.java:1561)
+	at org.eclipse.osgi.container.ModuleContainer$ContainerStartLevel.doContainerStartLevel(ModuleContainer.java:1533)
+	at org.eclipse.osgi.container.ModuleContainer$ContainerStartLevel.dispatchEvent(ModuleContainer.java:1476)
+	at org.eclipse.osgi.container.ModuleContainer$ContainerStartLevel.dispatchEvent(ModuleContainer.java:1)
+	at org.eclipse.osgi.framework.eventmgr.EventManager.dispatchEvent(EventManager.java:230)
+	at org.eclipse.osgi.framework.eventmgr.EventManager$EventThread.run(EventManager.java:340)
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 1 0 2015-01-28 12:00:16.035
+!MESSAGE --- Workbench plugin started. ---
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 1 0 2015-01-28 12:00:16.047
+!MESSAGE --- Crashlytics Updater Plugin is starting ---
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 1 0 2015-01-28 12:00:16.056
+!MESSAGE {internal=false, fabric=true}
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 1 0 2015-01-28 12:00:16.062
+!MESSAGE Starting com.crashlytics.tools.eclipse.updater(2.1.0.201412162152) with location: C:/eclipse/configuration/
+	 Managed plugins version: 0.0.0
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 0 0 2015-01-28 12:00:17.099
+!MESSAGE  OsgiBootstrapper - Installing 5 bundles from C:\Users\InJaeYu\Dropbox\hadoop\hadoop-test\.metadata\.plugins\com.crashlytics.tools.eclipse.workbench\.crashlytics_data\.bundles...
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 0 0 2015-01-28 12:00:17.302
+!MESSAGE  OsgiBootstrapper - Starting OSGi bundle com.crashlytics.tools.eclipse.app_3.2.1.201412162151 [905]
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 0 0 2015-01-28 12:00:17.611
+!MESSAGE  OsgiBootstrapper - Starting OSGi bundle com.crashlytics.tools.eclipse.core_3.2.1.201412162151 [906]
+
+!ENTRY com.crashlytics.tools.eclipse.workbench 0 0 2015-01-28 12:00:18.482
+!MESSAGE  OsgiBootstrapper - Starting OSGi bundle com.crashlytics.tools.eclipse.exporter_3.2.1.201412162151 [907]
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.368
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.373
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.379
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.386
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.391
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.403
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.411
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.437
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.eclipse.core 2 0 2015-01-28 12:00:25.443
+!MESSAGE Unknown font: Helvetica
+
+!ENTRY com.crashlytics.tools.android 4 0 2015-01-28 12:01:05.710
+!MESSAGE FrameworkEvent ERROR
+!STACK 0
+java.io.IOException: Exception in opening zip file: C:\eclipse\configuration\org.eclipse.osgi\904\0\bundleFile
+	at org.eclipse.osgi.framework.util.SecureAction.getZipFile(SecureAction.java:305)
+	at org.eclipse.osgi.storage.bundlefile.ZipBundleFile.basicOpen(ZipBundleFile.java:85)
+	at org.eclipse.osgi.storage.bundlefile.ZipBundleFile.getZipFile(ZipBundleFile.java:98)
+	at org.eclipse.osgi.storage.bundlefile.ZipBundleFile.checkedOpen(ZipBundleFile.java:65)
+	at org.eclipse.osgi.storage.bundlefile.ZipBundleFile.getEntry(ZipBundleFile.java:232)
+	at org.eclipse.osgi.internal.loader.classpath.ClasspathManager.findClassImpl(ClasspathManager.java:562)
+	at org.eclipse.osgi.internal.loader.classpath.ClasspathManager.findLocalClassImpl(ClasspathManager.java:540)
+	at org.eclipse.osgi.internal.loader.classpath.ClasspathManager.findLocalClass(ClasspathManager.java:527)
+	at org.eclipse.osgi.internal.loader.ModuleClassLoader.findLocalClass(ModuleClassLoader.java:324)
+	at org.eclipse.osgi.internal.loader.BundleLoader.findLocalClass(BundleLoader.java:311)
+	at org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader.java:386)
+	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:336)
+	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:328)
+	at org.eclipse.osgi.internal.loader.ModuleClassLoader.loadClass(ModuleClassLoader.java:160)
+	at java.lang.ClassLoader.loadClass(Unknown Source)
+	at org.apache.http.impl.auth.HttpAuthenticator.generateAuthResponse(HttpAuthenticator.java:180)
+	at org.apache.http.impl.execchain.MainClientExec.execute(MainClientExec.java:250)
+	at org.apache.http.impl.execchain.ProtocolExec.execute(ProtocolExec.java:194)
+	at org.apache.http.impl.execchain.RetryExec.execute(RetryExec.java:85)
+	at org.apache.http.impl.execchain.RedirectExec.execute(RedirectExec.java:108)
+	at org.apache.http.impl.client.InternalHttpClient.doExecute(InternalHttpClient.java:186)
+	at org.apache.http.impl.client.CloseableHttpClient.execute(CloseableHttpClient.java:82)
+	at org.apache.http.impl.client.CloseableHttpClient.execute(CloseableHttpClient.java:106)
+	at org.apache.http.impl.client.CloseableHttpClient.execute(CloseableHttpClient.java:57)
+	at com.crashlytics.api.RestfulWebApi.request(RestfulWebApi.java:137)
+	at com.crashlytics.api.RestfulWebApi.request(RestfulWebApi.java:126)
+	at com.crashlytics.api.RestfulWebApi.requestJSON(RestfulWebApi.java:959)
+	at com.crashlytics.api.RestfulWebApi.getJSON(RestfulWebApi.java:946)
+	at com.crashlytics.api.RestfulWebApi.getJSON(RestfulWebApi.java:941)
+	at com.crashlytics.api.RestfulWebApi.getSoftwareIntegration(RestfulWebApi.java:1020)
+	at com.crashlytics.tools.ide.android.AbstractAndroidIde.findPlatformUpdate(AbstractAndroidIde.java:254)
+	at com.crashlytics.tools.eclipse.EclipseUpdateFinder.findIntegration(EclipseUpdateFinder.java:50)
+	at com.crashlytics.tools.eclipse.EclipseUpdateFinder.findBootstrapperUpdate(EclipseUpdateFinder.java:83)
+	at com.crashlytics.tools.eclipse.EclipseUpdateFinder.findBootstrapperUpdate(EclipseUpdateFinder.java:1)
+	at com.crashlytics.tools.bootstrap.UpdateManager.updateBootstrapper(UpdateManager.java:121)
+	at com.crashlytics.tools.bootstrap.UpdateManager$WorkerRunnable.checkForUpdates(UpdateManager.java:94)
+	at com.crashlytics.tools.bootstrap.UpdateManager$WorkerRunnable.run(UpdateManager.java:75)
+	at java.lang.Thread.run(Unknown Source)
+Caused by: java.io.FileNotFoundException: C:\eclipse\configuration\org.eclipse.osgi\904\0\bundleFile (지정된 경로를 찾을 수 없습니다)
+	at java.util.zip.ZipFile.open(Native Method)
+	at java.util.zip.ZipFile.<init>(Unknown Source)
+	at java.util.zip.ZipFile.<init>(Unknown Source)
+	at java.util.zip.ZipFile.<init>(Unknown Source)
+	at org.eclipse.osgi.framework.util.SecureAction.getZipFile(SecureAction.java:288)
+	... 37 more
+!SESSION 2015-02-25 15:16:43.094 -----------------------------------------------
+eclipse.buildId=4.4.1.M20140925-0400
+java.version=1.8.0_31
+java.vendor=Oracle Corporation
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=ko_KR
+Framework arguments:  -product org.eclipse.epp.package.java.product
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 -product org.eclipse.epp.package.java.product
+
+!ENTRY org.eclipse.m2e.logback.configuration 2 0 2015-02-25 15:22:27.578
+!MESSAGE Exception while setting up logging:org.eclipse.osgi.internal.framework.EquinoxConfiguration$1 cannot be cast to java.lang.String
+!STACK 0
+java.lang.ClassCastException: org.eclipse.osgi.internal.framework.EquinoxConfiguration$1 cannot be cast to java.lang.String
+	at org.eclipse.m2e.logback.configuration.LogHelper.logJavaProperties(LogHelper.java:26)
+	at org.eclipse.m2e.logback.configuration.LogPlugin.loadConfiguration(LogPlugin.java:189)
+	at org.eclipse.m2e.logback.configuration.LogPlugin.configureLogback(LogPlugin.java:144)
+	at org.eclipse.m2e.logback.configuration.LogPlugin.access$2(LogPlugin.java:107)
+	at org.eclipse.m2e.logback.configuration.LogPlugin$1.run(LogPlugin.java:62)
+	at java.util.TimerThread.mainLoop(Unknown Source)
+	at java.util.TimerThread.run(Unknown Source)

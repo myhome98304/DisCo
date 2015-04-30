@@ -14,6 +14,7 @@ public class MakeMatrixData {
 		String outputPath = args[0];
 		int d=Integer.parseInt(args[1]);
 		int sections = Integer.parseInt(args[2]);
+		double prob = Double.parseDouble(args[3]);
 		FileSystem fs = FileSystem.get(new Configuration());
 
 		PrintWriter fw = new PrintWriter(new OutputStreamWriter(
@@ -38,7 +39,7 @@ public class MakeMatrixData {
 			int l=i;
 			for(;l<j;l++)
 				for(int k=i;k<j;k++){
-					if(Math.random()*5>1){
+					if(Math.random()<prob){
 						fw.write(row.get(l)+" "+col.get(k)+"\n");
 					}
 				}
@@ -48,6 +49,6 @@ public class MakeMatrixData {
 			
 		}
 		fw.close();
-		
+		System.out.println("Density : "+(4*(2*x+1)*prob)/(6 * x*(x+1)));
 	}
 }

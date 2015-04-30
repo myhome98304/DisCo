@@ -10,25 +10,25 @@ import org.apache.hadoop.mapreduce.Mapper;
 
 public class Preprocess_r_mapper extends
 		Mapper<LongWritable, Text, IntWritable, Text> {
-	IntWritable key =new IntWritable();
+	IntWritable key = new IntWritable();
 	Text value = new Text();
 	int src;
 	StringTokenizer st;
+
 	@Override
 	public void map(LongWritable arg0, Text line, Context context)
 			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
-		try{
-			st = new StringTokenizer(line.toString(),"\t ");
+
+		st = new StringTokenizer(line.toString(), "\t ");
+		try {
 			src = Integer.parseInt(st.nextToken());
-			key.set(src);
-			value.set(st.nextToken());
-			context.write(key,value);	
-		}
-		catch(Exception e){
+		} catch (Exception e) {
 			return;
 		}
-		
+		key.set(src);
+		value.set(1+"\t"+st.nextToken());
+		context.write(key, value);
 
 	}
 }

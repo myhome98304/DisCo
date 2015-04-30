@@ -10,11 +10,11 @@ import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 
 public class Preprocess_reducer extends Reducer<IntWritable, Text, IntWritable, Text> {
 	Text value = new Text();
-	Text number = new Text();
+	
 	StringTokenizer st;
 	MultipleOutputs<IntWritable, Text> mos;
 	int num;
-
+	String job;
 	@Override
 	protected void cleanup(Context context)
 			throws IOException, InterruptedException {
@@ -26,6 +26,7 @@ public class Preprocess_reducer extends Reducer<IntWritable, Text, IntWritable, 
 			throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 		mos = new MultipleOutputs<IntWritable, Text>(context);
+		job = context.getConfiguration().get("job","");
 	}
 	@Override
 	public void reduce(IntWritable key, Iterable<Text> values, Context context)
@@ -39,12 +40,10 @@ public class Preprocess_reducer extends Reducer<IntWritable, Text, IntWritable, 
 			num += Integer.parseInt(st.nextToken());
 			ret += st.nextToken() + " ";
 		}
+			
+		value.set(job+"\t"+0+"\t"+num+"\t"+ret);
 		
-		number.set(0+"\t"+num);
-		value.set(ret);
-		
-		mos.write("adj", key, value,"adj/adj");
-		mos.write("nonzero", key, number,"nonzero/nonzero");
+		context.write(key, value);
 	}
 
 }
